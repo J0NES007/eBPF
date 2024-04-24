@@ -4,6 +4,7 @@
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 #include <linux/if_ether.h>
+#include <bpf/bpf_core_read.h>
 #include <netinet/ip.h>
 #include <linux/tcp.h>
 #include <linux/socket.h>
@@ -11,11 +12,12 @@
 #include <linux/ptrace.h>
 #include <linux/sched.h>
 #include <linux/string.h>
-#include <netinet/in.h>
+#include <net/sock.h>
 
 
 #define PORT_MAP_SIZE 1
 #define MAX_PROCESS_NAME_LEN 16
+#define TASK_COMM_LEN 16
 
 // Define an eBPF map to store the port number
 struct {
@@ -26,26 +28,30 @@ struct {
 } bpf_port_map SEC(".maps");
 
 
-// Define eBPF hashmap to store port numbers and associated process names
-struct bpf_map_def SEC("maps") port_map = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(__u16),
-    .value_size = sizeof(char[MAX_PROCESS_NAME_LEN]),
-    .max_entries = 1024,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u16);
+    __type(value, char[MAX_PROCESS_NAME_LEN]);
+    __uint(max_entries, 1024);
+} port_map SEC(".maps");
+
 
 SEC("kprobe/inet_bind")
-int handle_bind(struct pt_regs *ctx) {
-    char process_name[MAX_PROCESS_NAME_LEN];
-    bpf_get_current_comm(&process_name, sizeof(process_name));
+int bindprobe_entry(struct pt_regs *ctx, struct socket *sock, 
+                        struct sockaddr *addr, int addrlen)
+{
+    // cast types. Intermediate cast not needed, kept for readability
+    struct sock *sk = sock->sk;
+    u16 family = sk->__sk_common.skc_family;
+     if (family == AF_INET) {
+        struct sockaddr_in *in_addr = (struct sockaddr_in *)addr;
+        bpf_printk("Process Port: %s\n", ntohs(in_addr->sin_port));
+     }
 
-    struct socket *sock = (struct socket *)PT_REGS_PARM1(ctx);
-    __u32 cookie = bpf_get_socket_cookie(sock);
-
-    struct sockaddr_in *addr = (struct sockaddr_in *)PT_REGS_PARM2(ctx);
-    __u16 port = ntohs(addr->sin_port);
-
-    bpf_map_update_elem(&port_map, &port, &process_name, BPF_ANY);
+    char comm[TASK_COMM_LEN];
+    bpf_get_current_comm(&comm, sizeof(comm));
+    bpf_printk("Process Name: %s\n", comm);
+    
 
     return 0;
 }
@@ -53,6 +59,7 @@ int handle_bind(struct pt_regs *ctx) {
 // Drop packets that are headed to the specified destination port
 SEC("xdp") 
 int drop_packets(struct xdp_md *ctx) {
+    bpf_printk("packet...\n");
     void *data_end = (void *)(long)ctx->data_end;
 	void *data = (void *)(long)ctx->data;
     struct ethhdr *eth = data;
