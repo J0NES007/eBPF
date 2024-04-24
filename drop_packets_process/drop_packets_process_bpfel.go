@@ -54,7 +54,6 @@ type drop_packets_processSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type drop_packets_processProgramSpecs struct {
 	DropPackets *ebpf.ProgramSpec `ebpf:"drop_packets"`
-	HandleBind  *ebpf.ProgramSpec `ebpf:"handle_bind"`
 }
 
 // drop_packets_processMapSpecs contains maps before they are loaded into the kernel.
@@ -62,7 +61,7 @@ type drop_packets_processProgramSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type drop_packets_processMapSpecs struct {
 	BpfPortMap *ebpf.MapSpec `ebpf:"bpf_port_map"`
-	PortMap    *ebpf.MapSpec `ebpf:"port_map"`
+	ProcessMap *ebpf.MapSpec `ebpf:"process_map"`
 }
 
 // drop_packets_processObjects contains all objects after they have been loaded into the kernel.
@@ -85,13 +84,13 @@ func (o *drop_packets_processObjects) Close() error {
 // It can be passed to loadDrop_packets_processObjects or ebpf.CollectionSpec.LoadAndAssign.
 type drop_packets_processMaps struct {
 	BpfPortMap *ebpf.Map `ebpf:"bpf_port_map"`
-	PortMap    *ebpf.Map `ebpf:"port_map"`
+	ProcessMap *ebpf.Map `ebpf:"process_map"`
 }
 
 func (m *drop_packets_processMaps) Close() error {
 	return _Drop_packets_processClose(
 		m.BpfPortMap,
-		m.PortMap,
+		m.ProcessMap,
 	)
 }
 
@@ -100,13 +99,11 @@ func (m *drop_packets_processMaps) Close() error {
 // It can be passed to loadDrop_packets_processObjects or ebpf.CollectionSpec.LoadAndAssign.
 type drop_packets_processPrograms struct {
 	DropPackets *ebpf.Program `ebpf:"drop_packets"`
-	HandleBind  *ebpf.Program `ebpf:"handle_bind"`
 }
 
 func (p *drop_packets_processPrograms) Close() error {
 	return _Drop_packets_processClose(
 		p.DropPackets,
-		p.HandleBind,
 	)
 }
 

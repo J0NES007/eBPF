@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-
+    // C.hello()
     var inputPort string
     var ifName string
 	var processName string
@@ -20,7 +20,7 @@ func main() {
 	fmt.Print("Enter a port (press Enter for default value): ")
     fmt.Scanln(&inputPort)
     if inputPort == "" {
-		inputPort = "4040"
+		inputPort = "5353"
 	}
     fmt.Println(inputPort)
     fmt.Print("Enter network interface name (press Enter for default value): ")
@@ -28,32 +28,41 @@ func main() {
     if ifName == "" {
         ifName = "wlp2s0b1"
     }
+    fmt.Println(ifName)
 	fmt.Print("Enter process name (press Enter for default value): ")
     fmt.Scanln(&processName)
     if processName == "" {
-		processName = "test"
+		processName = "python"
 	}
-    fmt.Println(ifName)
+    fmt.Println(processName)
 	port, err := strconv.Atoi(inputPort)
 	if err != nil {
         log.Fatal("Error parsing input:", err)
 	}
-	
+
     // Remove resource limits for kernels <5.11.
     if err := rlimit.RemoveMemlock(); err != nil { 
         log.Fatal("Removing memlock:", err)
     }
 
     // Load the compiled eBPF ELF and load it into the kernel.
-    var objs drop_packetsObjects 
-    if err := loadDrop_packetsObjects(&objs, nil); err != nil {
+    var objs drop_packets_processObjects
+    if err := loadDrop_packets_processObjects(&objs, nil); err != nil {
         log.Fatal("Loading eBPF objects:", err)
     }
     defer objs.Close() 
 
-    // Update the port number in the eBPF map.
-    portNumber := uint32(port)
-    if err := objs.BpfPortMap.Update(uint32(0), &portNumber, 0); err != nil {
+
+    processMapPath := "/sys/fs/bpf/process_map"
+	if _, err := os.Stat(processMapPath); os.IsNotExist(err) {
+        err = objs.ProcessMap.Pin("/sys/fs/bpf/process_map")
+        if err != nil {
+            fmt.Println("error pinning map", err)
+        }
+	}
+    
+    // str := string(chars)
+    if err := objs.BpfPortMap.Update(uint32(port), processName, 0); err != nil {
         log.Fatal("Updating port map:", err)
     }
 
@@ -72,6 +81,7 @@ func main() {
         log.Fatal("Attaching XDP:", err)
     }
     defer link.Close() 
+    
 
     stop := make(chan os.Signal, 1)
     signal.Notify(stop, os.Interrupt)
