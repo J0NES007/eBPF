@@ -52,7 +52,7 @@ int drop_packets(struct xdp_md *ctx) {
         bpf_printk("Port map lookup failed\n");
         return XDP_PASS;
     }
-
+    // If the destination port in the packet is the same as the port in the map which we have set from userspace. Then drop it. 
     if (ntohs(tcp->dest) == *port) {
 		bpf_printk("dropping packet on port: %d\n", ntohs(tcp->dest));
         return XDP_DROP; 
