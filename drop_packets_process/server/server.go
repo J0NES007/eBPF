@@ -1,11 +1,16 @@
 package main
 
+/*
+#include <stdlib.h>
+*/
+import "C"
 import (
 	"fmt"
 	"log"
+    	"unsafe"
 	"strconv"
-    "net"
-    "os"
+    	"net"
+    	"os"
 	"os/signal"
 	"github.com/cilium/ebpf"
 )
@@ -23,7 +28,7 @@ func main() {
 	fmt.Print("Enter a port (press Enter for default value): ")
     fmt.Scanln(&inputPort)
     if inputPort == "" {
-		inputPort = "5353"
+		inputPort = "1900"
 	}
     fmt.Println(inputPort)
 	fmt.Print("Enter process name (press Enter for default value): ")
@@ -42,9 +47,10 @@ func main() {
     if err != nil {
         log.Fatal("Loading pinned process map:", err)
     }
-
+    cstr := C.CString(processName)
+    defer C.free(unsafe.Pointer(cstr))
     // Update process name and port to map
-    processMap.Update(uint32(port), processName, 0)
+    processMap.Update(uint32(port), cstr, 0)
 
 
     // Listen for incoming connections
