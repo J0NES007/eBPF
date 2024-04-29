@@ -1,18 +1,23 @@
 package main
 
+/*
+#include <stdlib.h>
+*/
+import "C"
 import (
 	"fmt"
 	"log"
 	"net"
+    "unsafe"
 	"os"
 	"os/signal"
-    "strconv"
+	"strconv"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
 )
 
+
 func main() {
-    // C.hello()
     var inputPort string
     var ifName string
 	var processName string
@@ -26,7 +31,7 @@ func main() {
     fmt.Print("Enter network interface name (press Enter for default value): ")
     fmt.Scanln(&ifName)
     if ifName == "" {
-        ifName = "wlp2s0b1"
+        ifName = "eth0"
     }
     fmt.Println(ifName)
 	fmt.Print("Enter process name (press Enter for default value): ")
@@ -40,6 +45,7 @@ func main() {
         log.Fatal("Error parsing input:", err)
 	}
 
+    
     // Remove resource limits for kernels <5.11.
     if err := rlimit.RemoveMemlock(); err != nil { 
         log.Fatal("Removing memlock:", err)
@@ -52,17 +58,17 @@ func main() {
     }
     defer objs.Close() 
 
-
     processMapPath := "/sys/fs/bpf/process_map"
 	if _, err := os.Stat(processMapPath); os.IsNotExist(err) {
         err = objs.ProcessMap.Pin("/sys/fs/bpf/process_map")
         if err != nil {
-            fmt.Println("error pinning map", err)
+            log.Fatal("error pinning map", err)
         }
 	}
-    
-    // str := string(chars)
-    if err := objs.BpfPortMap.Update(uint32(port), processName, 0); err != nil {
+    cstr := C.CString(processName)
+    defer C.free(unsafe.Pointer(cstr))
+
+    if err := objs.BpfPortMap.Update(uint32(port), cstr, 0); err != nil {
         log.Fatal("Updating port map:", err)
     }
 
