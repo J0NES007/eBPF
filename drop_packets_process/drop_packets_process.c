@@ -78,7 +78,9 @@ int drop_packets(struct xdp_md *ctx) {
     // If the process name matches, then drop the packet for this port
     if (expected_process_name == actual_process_name) {
         bpf_printk("dropping packet for process: %c", actual_process_name);
-        return XDP_DROP;
+        return XDP_PASS;
+    } else {
+	return XDP_DROP;
     }
 
     return XDP_PASS;
