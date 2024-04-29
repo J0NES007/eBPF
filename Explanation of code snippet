@@ -1,0 +1,79 @@
+package main
+
+import "fmt"
+
+func main() {
+	cnp := make(chan func(), 10)
+
+	for i := 0; i < 4; i++ {
+		go func() {
+			for f := range cnp {
+				f()
+			}
+		}()
+	}
+
+	cnp <- func() { fmt.Println("HERE1") }
+	fmt.Println("Hello")
+}
+
+
+
+1. Explain how the highlighted constructs work?
+
+We seem to be trying to do a producer-consumer setup using channels and having multiple consumers concurrently consuming data from the channels. 
+
+
+2. use-cases of what these constructs could be used for.
+
+An order processing system for an e-commerce platform
+producer: Generates events when a customer places an order
+Message queue: The buffer between producer and consumer
+Consumers: There are multiple consumer processes running in a high-availability configuration, but only one consumer is actively processing messages at any given time.
+
+3. significance of the for loop with 4 iterations?
+
+To have more than one go routine concurrently execute functions from the channel especially if the function that is passed through channel takes too long to execute. 
+
+4. significance of make(chan func(), 10
+
+To create a channel that can hold upto 10 functions in it at a time. Producer will get blocked only if there is no space left to send data. 
+
+5. Why is “HERE1” not getting printed?
+
+When a new Goroutine executed, the main thread does not wait for goroutine to finish the execution and ignores the value returned by the goroutine.
+
+
+Updated code:
+
+package main
+
+import "fmt"
+import "sync"
+
+func main() {
+    cnp := make(chan func(), 10)
+    var wg sync.WaitGroup
+    for i := 0; i < 4; i++ {
+        wg.Add(1)
+        go func(i int) {
+            fmt.Println("consumer: ", i)
+            defer wg.Done()
+            for f := range cnp {
+                f()
+            }
+        }(i)
+    }
+
+    cnp <- func() {
+        fmt.Println("HERE1")
+    }
+    close(cnp)
+
+    wg.Wait()
+
+    fmt.Println("Hello")
+}
+
+
+We add a waitgroup so that the main thread waits for one of the go routines to iterate through the channel and execute the function, thereby printing the data
