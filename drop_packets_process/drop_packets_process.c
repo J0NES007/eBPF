@@ -11,16 +11,16 @@
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
         __type(key, __u32);
-        __type(value, char[6]);
+        __type(value, char);
         __uint(max_entries, PORT_MAP_SIZE);
 } bpf_port_map SEC(".maps");
 
 
 // Define an eBPF map to store the port to process mappings
 struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u32);
-	__type(value, __u32);
+	__type(value, char);
 	__uint(max_entries, PORT_MAP_SIZE);
 } process_map SEC(".maps");
 
@@ -59,7 +59,6 @@ int drop_packets(struct xdp_md *ctx) {
     __u16 port = ntohs(tcp->dest);
     __u32 key = (__u32)port;
 
-    bpf_printk("packet on port: %d\n", ntohs(tcp->dest));
 
     char *expected_process_name; 
     // Get the expected process name
@@ -67,19 +66,18 @@ int drop_packets(struct xdp_md *ctx) {
     if (!expected_process_name) {
         return XDP_PASS;
     } 
-    bpf_printk("expected process namet: %c\n", expected_process_name);
     char *actual_process_name; 
     // Look up the process name in the process_map to see if the expected process is running on same port
     actual_process_name = bpf_map_lookup_elem(&process_map, &key);
     if (!actual_process_name) {
         return XDP_PASS;
     } 
-    bpf_printk("actual process namet: %c\n", actual_process_name);
     // If the process name matches, then drop the packet for this port
     if (expected_process_name == actual_process_name) {
-        bpf_printk("dropping packet for process: %c", actual_process_name);
+        bpf_printk("passing packet for process: %c", actual_process_name);
         return XDP_PASS;
     } else {
+        bpf_printk("dropping packet for process: %c", actual_process_name);
 	return XDP_DROP;
     }
 
